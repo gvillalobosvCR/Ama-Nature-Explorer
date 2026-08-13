@@ -68,11 +68,13 @@ self.addEventListener('fetch', (event) => {
           // OFFLINE FALLBACK: If offline, return cached /explore shell.
           // The Next.js client-side router will take over, read the route, 
           // and load data locally from localStorage.
-          return (
-            caches.match('/explore') ||
-            caches.match('/') ||
-            caches.match('/prepare')
-          );
+          return caches.match('/explore').then((exploreRes) => {
+            if (exploreRes) return exploreRes;
+            return caches.match('/').then((rootRes) => {
+              if (rootRes) return rootRes;
+              return caches.match('/prepare');
+            });
+          });
         })
     );
     return;

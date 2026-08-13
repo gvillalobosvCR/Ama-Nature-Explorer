@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 // High-quality Costa Rican nature placeholder data to ensure the app is fully functional out-of-the-box
 const MOCK_DATA = {
   version: 1,
