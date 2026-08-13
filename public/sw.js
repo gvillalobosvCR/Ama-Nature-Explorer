@@ -13,12 +13,17 @@ const PRECACHE_ASSETS = [
   '/icon-512.png',
 ];
 
-// Install Event - Pre-cache core shells
+// Install Event - Pre-cache core shells resiliently
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Pre-caching app shells');
-      return cache.addAll(PRECACHE_ASSETS);
+      console.log('[Service Worker] Pre-caching app shells resiliently');
+      const promises = PRECACHE_ASSETS.map((asset) => {
+        return cache.add(asset).catch((err) => {
+          console.warn(`[Service Worker] Failed to precache: ${asset}`, err);
+        });
+      });
+      return Promise.all(promises);
     }).then(() => self.skipWaiting())
   );
 });
