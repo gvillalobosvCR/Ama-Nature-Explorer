@@ -39,6 +39,16 @@ export default function ExploreDashboard() {
     }
   }, [hydrated, offlineData, router]);
 
+  // Proactively prefetch ALL /explore/[id] routes as soon as the data is available.
+  // This caches the RSC shell for every species so offline navigation works
+  // immediately after a browser/app refresh — without waiting for cards to scroll
+  // into viewport (partialPrefetching alone only runs when Links enter the viewport).
+  useEffect(() => {
+    if (!offlineData) return;
+    offlineData.points.forEach((point) => {
+      router.prefetch(`/explore/${point.number}`);
+    });
+  }, [offlineData, router]);
 
   if (!offlineData) {
     return (
