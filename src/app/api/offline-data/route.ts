@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
-export const dynamic = 'force-dynamic';
+// Note: With cacheComponents in next.config.ts, API routes are uncached by default.
+// No need for export const dynamic = 'force-dynamic'.
 
 // High-quality Costa Rican nature placeholder data to ensure the app is fully functional out-of-the-box
 const MOCK_DATA = {

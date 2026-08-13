@@ -39,15 +39,6 @@ export default function ExploreDashboard() {
     }
   }, [hydrated, offlineData, router]);
 
-  // Service Worker offline fallback: if SW served /explore shell for /explore/N, redirect properly
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const path = window.location.pathname;
-    const match = path.match(/^\/explore\/(\d+)$/);
-    if (match) {
-      router.replace(`/explore/${match[1]}`);
-    }
-  }, [router]);
 
   if (!offlineData) {
     return (
