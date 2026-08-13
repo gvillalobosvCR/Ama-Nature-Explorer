@@ -89,7 +89,15 @@ export function GuideProvider({ children }: { children: React.ReactNode }) {
   const [downloadStatus, setDownloadStatus] = useState<'idle' | 'downloading' | 'completed' | 'error'>('idle');
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
   const [downloadDetails, setDownloadDetails] = useState<string>('');
-  const [offlineData, setOfflineData] = useState<OfflineDataPayload | null>(null);
+  // Initialize synchronously from localStorage to avoid race conditions on first render
+  const [offlineData, setOfflineData] = useState<OfflineDataPayload | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const localData = localStorage.getItem('ama_offline_data');
+      if (localData) return JSON.parse(localData) as OfflineDataPayload;
+    } catch (e) {}
+    return null;
+  });
 
   // 4. Discovery Progress
   const [discoveredPoints, setDiscoveredPoints] = useState<number[]>([]);
@@ -118,17 +126,11 @@ export function GuideProvider({ children }: { children: React.ReactNode }) {
       else setLang('en');
     }
 
-    // Load local offline data
+    // Set download status if data already exists (loaded synchronously above)
     const localData = localStorage.getItem('ama_offline_data');
     if (localData) {
-      try {
-        const parsed = JSON.parse(localData) as OfflineDataPayload;
-        setOfflineData(parsed);
-        setDownloadStatus('completed');
-        setDownloadProgress(100);
-      } catch (e) {
-        console.error('Error parsing local offline data:', e);
-      }
+      setDownloadStatus('completed');
+      setDownloadProgress(100);
     }
 
     // Load discovery progress

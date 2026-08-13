@@ -25,13 +25,29 @@ export default function ExploreDashboard() {
   const [numInput, setNumInput] = useState('');
   const [numError, setNumError] = useState('');
 
-  // Auto redirect if not downloaded yet
+  // Wait for hydration before deciding to redirect - avoids race with synchronous localStorage init
+  const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
     const isDownloaded = localStorage.getItem('ama_guide_downloaded') === 'true';
     if (!isDownloaded && !offlineData) {
       router.replace('/prepare');
     }
-  }, [offlineData, router]);
+  }, [hydrated, offlineData, router]);
+
+  // Service Worker offline fallback: if SW served /explore shell for /explore/N, redirect properly
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const path = window.location.pathname;
+    const match = path.match(/^\/explore\/(\d+)$/);
+    if (match) {
+      router.replace(`/explore/${match[1]}`);
+    }
+  }, [router]);
 
   if (!offlineData) {
     return (
