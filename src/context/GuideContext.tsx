@@ -223,7 +223,7 @@ export function GuideProvider({ children }: { children: React.ReactNode }) {
       for (let i = 0; i < totalAssets; i++) {
         const url = urlsArray[i];
         const displayIndex = i + 1;
-        const percent = 15 + Math.round((displayIndex / totalAssets) * 80); // Scales 15% -> 95%
+        const percent = 15 + Math.round((displayIndex / totalAssets) * 75); // Scales 15% -> 90%
         
         setDownloadProgress(percent);
         setDownloadDetails(
@@ -245,7 +245,26 @@ export function GuideProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // 4. Save JSON database in LocalStorage
+      // 4. Cache HTML for each species detail page in the Service Worker cache.
+      // This is crucial: router.prefetch() only caches in Next.js in-memory cache
+      // which clears on refresh. By fetching each /explore/N page here and putting
+      // it in the SW cache, every species page is available offline after any refresh.
+      setDownloadProgress(95);
+      setDownloadDetails(lang === 'es' ? 'Guardando páginas para acceso offline...' : 'Saving pages for offline access...');
+      
+      const staticCache = await caches.open('ama-static-v5');
+      for (const point of payload.points) {
+        try {
+          const pageResponse = await fetch(`/explore/${point.number}`, { credentials: 'same-origin' });
+          if (pageResponse.ok) {
+            await staticCache.put(`/explore/${point.number}`, pageResponse);
+          }
+        } catch (err) {
+          console.warn(`[Offline Sync] Could not cache page for point #${point.number}`, err);
+        }
+      }
+
+      // 5. Save JSON database in LocalStorage
       localStorage.setItem('ama_offline_data', JSON.stringify(payload));
       localStorage.setItem('ama_guide_downloaded', 'true');
       localStorage.setItem('ama_downloaded_version', payload.version.toString());
