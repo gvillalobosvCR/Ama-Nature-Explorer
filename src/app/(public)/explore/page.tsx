@@ -4,6 +4,7 @@ import { useGuide, Point } from '@/context/GuideContext';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import SpeciesDetailView from '@/app/components/SpeciesDetailView';
 
 export default function ExploreDashboard() {
   const {
@@ -12,12 +13,14 @@ export default function ExploreDashboard() {
     offlineData,
     discoveredPoints,
     updateAvailable,
-    startDownload,
     changeLanguage,
     resetProgress,
   } = useGuide();
 
   const router = useRouter();
+
+  // Selected Species for In-App View (Instant offline rendering)
+  const [selectedPointNumber, setSelectedPointNumber] = useState<number | null>(null);
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -31,6 +34,28 @@ export default function ExploreDashboard() {
     setHydrated(true);
   }, []);
 
+  // Listen to browser forward/back buttons & detect direct route on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Check if the current URL pathname is /explore/12
+    const checkUrl = () => {
+      const path = window.location.pathname;
+      const match = path.match(/^\/explore\/(\d+)$/);
+      if (match) {
+        setSelectedPointNumber(parseInt(match[1], 10));
+      } else {
+        setSelectedPointNumber(null);
+      }
+    };
+
+    checkUrl();
+
+    // Listen to browser Back/Forward navigation
+    window.addEventListener('popstate', checkUrl);
+    return () => window.removeEventListener('popstate', checkUrl);
+  }, []);
+
   useEffect(() => {
     if (!hydrated) return;
     const isDownloaded = localStorage.getItem('ama_guide_downloaded') === 'true';
@@ -39,16 +64,21 @@ export default function ExploreDashboard() {
     }
   }, [hydrated, offlineData, router]);
 
-  // Proactively prefetch ALL /explore/[id] routes as soon as the data is available.
-  // This caches the RSC shell for every species so offline navigation works
-  // immediately after a browser/app refresh — without waiting for cards to scroll
-  // into viewport (partialPrefetching alone only runs when Links enter the viewport).
-  useEffect(() => {
-    if (!offlineData) return;
-    offlineData.points.forEach((point) => {
-      router.prefetch(`/explore/${point.number}`);
-    });
-  }, [offlineData, router]);
+  // Open species detail view with instant SPA state & update browser history
+  const openSpecies = (pointNumber: number) => {
+    setSelectedPointNumber(pointNumber);
+    if (typeof window !== 'undefined') {
+      window.history.pushState({ pointNumber }, '', `/explore/${pointNumber}`);
+    }
+  };
+
+  // Close species detail view & restore URL
+  const closeSpecies = () => {
+    setSelectedPointNumber(null);
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', '/explore');
+    }
+  };
 
   if (!offlineData) {
     return (
@@ -59,7 +89,7 @@ export default function ExploreDashboard() {
     );
   }
 
-  const { categories, points, settings } = offlineData;
+  const { categories, points } = offlineData;
 
   // Filter points based on category selection & search input
   const filteredPoints = points.filter((point) => {
@@ -96,7 +126,8 @@ export default function ExploreDashboard() {
 
     const pointExists = points.find((p) => p.number === num);
     if (pointExists) {
-      router.push(`/explore/${num}`);
+      openSpecies(num);
+      setNumInput('');
     } else {
       setNumError(
         lang === 'es'
@@ -109,6 +140,14 @@ export default function ExploreDashboard() {
   return (
     <div className="flex-1 flex flex-col justify-between bg-emerald-950 min-h-screen text-slate-100 pb-20 relative">
       
+      {/* Full-screen Species Detail View (Instant Render, 0ms Network delay) */}
+      {selectedPointNumber !== null && (
+        <SpeciesDetailView
+          pointNumber={selectedPointNumber}
+          onClose={closeSpecies}
+        />
+      )}
+
       {/* Top Banner: Online Update availability */}
       {updateAvailable && isOnline && (
         <div className="bg-gradient-to-r from-teal-500 to-emerald-600 text-white text-xs font-bold px-4 py-2.5 flex justify-between items-center shadow-md animate-slide-down relative z-20">
@@ -199,10 +238,10 @@ export default function ExploreDashboard() {
                 const discovered = discoveredPoints.includes(pt.number);
                 const category = categories.find((c) => c.id === pt.category_id);
                 return (
-                  <Link
+                  <button
                     key={pt.id}
-                    href={`/explore/${pt.number}`}
-                    className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all border ${
+                    onClick={() => openSpecies(pt.number)}
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm transition-all border cursor-pointer active:scale-90 ${
                       discovered
                         ? 'bg-emerald-800/80 border-emerald-400 text-white shadow-sm'
                         : 'bg-emerald-950/40 border-emerald-900/80 text-emerald-700/60'
@@ -210,7 +249,7 @@ export default function ExploreDashboard() {
                     title={lang === 'es' ? pt.name_es : pt.name_en}
                   >
                     {discovered ? (category?.icon || '🌿') : '?'}
-                  </Link>
+                  </button>
                 );
               })}
             </div>
@@ -320,10 +359,11 @@ export default function ExploreDashboard() {
               const category = categories.find((c) => c.id === point.category_id);
               
               return (
-                <Link
+                <div
                   key={point.id}
-                  href={`/explore/${point.number}`}
-                  className="bg-emerald-900/40 hover:bg-emerald-900/60 border border-emerald-800/20 rounded-2xl overflow-hidden shadow-lg flex transition-all active:scale-[0.98] duration-200"
+                  role="button"
+                  onClick={() => openSpecies(point.number)}
+                  className="bg-emerald-900/40 hover:bg-emerald-900/60 border border-emerald-800/20 rounded-2xl overflow-hidden shadow-lg flex transition-all active:scale-[0.98] duration-200 cursor-pointer"
                 >
                   {/* Card Thumbnail */}
                   <div className="w-28 h-28 relative bg-emerald-950 flex-shrink-0">
@@ -396,13 +436,13 @@ export default function ExploreDashboard() {
                       </span>
                     </div>
                   </div>
-                </Link>
+                </div>
               );
             })
           )}
         </div>
         
-        {/* Reset progress option at bottom (simple utility) */}
+        {/* Reset progress option at bottom */}
         <div className="text-center pt-8 pb-4">
           <button
             onClick={() => {

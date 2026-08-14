@@ -4,6 +4,7 @@ import { useGuide, Point } from '@/context/GuideContext';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import SpeciesDetailView from '@/app/components/SpeciesDetailView';
 
 export default function OfflineMapPage() {
   const { lang, isOnline, offlineData, discoveredPoints, changeLanguage } = useGuide();
@@ -11,6 +12,8 @@ export default function OfflineMapPage() {
 
   // Selected Point for floating preview drawer
   const [selectedPoint, setSelectedPoint] = useState<Point | null>(null);
+  // Full species detail view overlay
+  const [activeDetailPointNumber, setActiveDetailPointNumber] = useState<number | null>(null);
 
   // Zoom and Pan States
   const [scale, setScale] = useState(1);
@@ -136,6 +139,14 @@ export default function OfflineMapPage() {
   return (
     <div className="flex-1 flex flex-col justify-between bg-emerald-950 min-h-screen text-slate-100 pb-20 relative overflow-hidden">
       
+      {/* Full-screen Species Detail View (Instant Render, 0ms Network delay) */}
+      {activeDetailPointNumber !== null && (
+        <SpeciesDetailView
+          pointNumber={activeDetailPointNumber}
+          onClose={() => setActiveDetailPointNumber(null)}
+        />
+      )}
+
       {/* Header section */}
       <div className="p-4 relative z-20">
         <div className="flex justify-between items-center bg-emerald-900/40 p-3 rounded-2xl border border-emerald-800/20 backdrop-blur-sm shadow-md">
@@ -148,12 +159,15 @@ export default function OfflineMapPage() {
           </div>
           
           <div className="flex items-center gap-3">
+            {/* Connection indicator */}
             {!isOnline && (
               <span className="bg-emerald-800/80 border border-emerald-500/30 text-emerald-300 font-black text-[9px] uppercase px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
                 <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping"></span>
                 <span>{lang === 'es' ? 'Offline' : 'Offline'}</span>
               </span>
             )}
+
+            {/* Language toggle */}
             <button
               onClick={() => changeLanguage(lang === 'es' ? 'en' : 'es')}
               className="text-[11px] font-black text-emerald-300 bg-emerald-950 border border-emerald-800/80 px-2 py-1 rounded-lg hover:bg-emerald-900 active:scale-95 transition-all cursor-pointer"
@@ -164,10 +178,9 @@ export default function OfflineMapPage() {
         </div>
       </div>
 
-      {/* Interactive Map Viewport */}
-      <div
+      {/* Map Interactive Canvas */}
+      <div 
         ref={mapContainerRef}
-        className="flex-1 relative w-full overflow-hidden bg-emerald-900/10 cursor-grab active:cursor-grabbing flex items-center justify-center"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUpOrLeave}
@@ -175,28 +188,27 @@ export default function OfflineMapPage() {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        className="flex-1 relative overflow-hidden flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
       >
-        
-        {/* The Illustrated Map wrapper */}
-        <div
-          className="relative w-full aspect-square max-w-sm transition-transform duration-75 ease-out select-none"
+        {/* Map Container transformed by pan and zoom */}
+        <div 
           style={{
             transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-            transformOrigin: 'center center',
+            transition: isDragging ? 'none' : 'transform 0.15s ease-out',
           }}
+          className="relative w-full aspect-square max-w-sm max-h-[460px] bg-emerald-900/50 rounded-2xl overflow-hidden shadow-2xl border border-emerald-800/30 flex-shrink-0"
         >
-          {/* Map Image */}
+          {/* Map Graphic Layer */}
           <img
             src={mapImageUrl}
-            alt="Illustrated Map Arenal Mundo Aventura"
-            className="w-full h-full object-contain pointer-events-none rounded-2xl border border-emerald-800/30 shadow-2xl"
-            draggable="false"
+            alt="Arenal Mundo Aventura Map"
+            className="w-full h-full object-cover pointer-events-none"
+            draggable={false}
           />
 
-          {/* Interactive Plot Pins */}
+          {/* Points Pins on Map */}
           {points.map((pt) => {
             const discovered = discoveredPoints.includes(pt.number);
-            const category = categories.find((c) => c.id === pt.category_id);
             const isSelected = selectedPoint?.id === pt.id;
 
             return (
@@ -301,12 +313,12 @@ export default function OfflineMapPage() {
                 : '???'}
             </p>
 
-            <Link
-              href={`/explore/${selectedPoint.number}`}
-              className="inline-block mt-1.5 bg-emerald-500 hover:bg-emerald-400 text-white font-extrabold text-[9px] px-3 py-1 rounded-md transition-all shadow-md"
+            <button
+              onClick={() => setActiveDetailPointNumber(selectedPoint.number)}
+              className="inline-block mt-1.5 bg-emerald-500 hover:bg-emerald-400 text-white font-extrabold text-[9px] px-3 py-1 rounded-md transition-all shadow-md cursor-pointer active:scale-95"
             >
               {lang === 'es' ? 'VER DETALLE ➔' : 'VIEW DETAILS ➔'}
-            </Link>
+            </button>
           </div>
         </div>
       )}
